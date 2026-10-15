@@ -9,7 +9,6 @@ type ProgressStage =
   | "duplicate_check"
   | "gpt_enrich"
   | "notion_insert"
-  | "item_created"
   | "item_skipped"
   | "item_failed";
 
@@ -33,8 +32,7 @@ export function summarize(results: ItemResult[]): Summary {
   const created = results.filter((r) => r.status === "created").length;
   const skipped = results.filter((r) => r.status === "skipped").length;
   const failedItems = results.filter(
-    (r): r is Extract<ItemResult, { status: "failed" }> =>
-      r.status === "failed",
+    (r): r is Extract<ItemResult, { status: "failed" }> => r.status === "failed",
   );
 
   return {
@@ -151,9 +149,7 @@ export async function processMessageBatch(
       gpt = await deps.enrichWord(item);
     } catch (error) {
       const msg = stripError(error);
-      const phase = msg.includes("format validation failed")
-        ? "gpt_validation"
-        : "gpt_request";
+      const phase = msg.includes("format validation failed") ? "gpt_validation" : "gpt_request";
       results.push({ status: "failed", input: item, phase, reason: msg });
 
       await reportProgress(deps, {
@@ -175,19 +171,12 @@ export async function processMessageBatch(
     });
 
     try {
-      await deps.notion.createWordRow({
+      const notionUrl = await deps.notion.createWordRow({
         word: item,
         definition: gpt.definition,
         example: gpt.example,
       });
-      results.push({ status: "created", input: item, savedWord: item });
-
-      await reportProgress(deps, {
-        stage: "item_created",
-        item,
-        index: step,
-        total,
-      });
+      results.push({ status: "created", input: item, savedWord: item, notionUrl });
     } catch (error) {
       const reason = stripError(error);
       results.push({

@@ -30,6 +30,8 @@ And: the bot creates one new Notion row with Word, Definition, and Example popul
 
 And: the bot sends me a success message confirming the item was saved
 
+And: the success message includes a link to the new Notion page
+
 ---
 
 ## Acceptance criteria 2: Save multiple items from one multiline message
@@ -47,6 +49,8 @@ And: each parsed item is processed independently through duplicate check, GPT en
 And: if one item fails, the bot continues processing remaining items in the same message
 
 And: after processing all items, the bot sends one final summary with created, skipped, and failed counts plus per-failed-item reason
+
+And: the final summary includes a link for each created Notion page
 
 ---
 

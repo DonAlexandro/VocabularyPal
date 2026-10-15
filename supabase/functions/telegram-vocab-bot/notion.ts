@@ -24,7 +24,7 @@ const extractWordFromPage = (page: any): string => {
 
 export interface INotionService {
   existsByWord(word: string): Promise<boolean>;
-  createWordRow(input: CreateInput): Promise<void>;
+  createWordRow(input: CreateInput): Promise<string>;
 }
 
 export class NotionService implements INotionService {
@@ -73,8 +73,8 @@ export class NotionService implements INotionService {
     return false;
   }
 
-  async createWordRow(input: CreateInput): Promise<void> {
-    await this.notion.pages.create({
+  async createWordRow(input: CreateInput): Promise<string> {
+    const page = await this.notion.pages.create({
       parent: { database_id: this.databaseId },
       properties: {
         Word: { title: [{ text: { content: input.word } }] },
@@ -82,5 +82,9 @@ export class NotionService implements INotionService {
         Example: { rich_text: [{ text: { content: input.example } }] },
       },
     });
+    if (!("url" in page) || typeof page.url !== "string") {
+      throw new Error("Notion create response did not include a page URL");
+    }
+    return page.url;
   }
 }

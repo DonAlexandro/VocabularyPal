@@ -20,12 +20,12 @@ function mockNotion(options: {
           options.existing?.has(word.toLocaleLowerCase()) ?? false,
         );
       },
-      createWordRow: (row: GptVocabulary): Promise<void> => {
+      createWordRow: (row: GptVocabulary): Promise<string> => {
         if (options.failInsertFor === row.word) {
           return Promise.reject(new Error("insert fail"));
         }
         created.push(row.word);
-        return Promise.resolve();
+        return Promise.resolve(`https://notion.so/${row.word}`);
       },
     },
   };
@@ -73,9 +73,9 @@ Deno.test(
 
     const notion: INotionService = {
       existsByWord: (_word: string): Promise<boolean> => Promise.resolve(false),
-      createWordRow: (row: GptVocabulary): Promise<void> => {
+      createWordRow: (row: GptVocabulary): Promise<string> => {
         insertedRows.push(row);
-        return Promise.resolve();
+        return Promise.resolve("https://notion.so/chop-chop");
       },
     };
 
@@ -86,11 +86,20 @@ Deno.test(
         example: "Chop-chop, we are late.",
       });
 
-    await processMessageBatch("don't chop-chop me", { notion, enrichWord });
+    const results = await processMessageBatch("don't chop-chop me", {
+      notion,
+      enrichWord,
+    });
 
     assertEquals(insertedRows.length, 1);
     assertEquals(insertedRows[0].word, "don't chop-chop me");
     assertEquals(insertedRows[0].definition, "to hurry");
     assertEquals(insertedRows[0].example, "Chop-chop, we are late.");
+    assertEquals(results[0], {
+      status: "created",
+      input: "don't chop-chop me",
+      savedWord: "don't chop-chop me",
+      notionUrl: "https://notion.so/chop-chop",
+    });
   },
 );

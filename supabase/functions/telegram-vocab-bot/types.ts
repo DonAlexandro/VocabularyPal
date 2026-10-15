@@ -6,7 +6,12 @@ export type Phase =
   | "notion_insert";
 
 export type ItemResult =
-  | { status: "created"; input: string; savedWord: string }
+  | {
+    status: "created";
+    input: string;
+    savedWord: string;
+    notionUrl: string;
+  }
   | { status: "skipped"; input: string; reason: string }
   | { status: "failed"; input: string; phase: Phase; reason: string };
 

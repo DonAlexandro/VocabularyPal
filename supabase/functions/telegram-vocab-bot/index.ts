@@ -1,10 +1,7 @@
-import {
-  createDefaultPipelineDeps,
-  processMessageBatch,
-  summarize,
-} from "./pipeline.ts";
+import { createDefaultPipelineDeps, processMessageBatch, summarize } from "./pipeline.ts";
 import { sendTelegramMessage } from "./telegram.ts";
 import { isAllowedChat, isWebhookValid } from "./auth.ts";
+import type { ItemResult } from "./types.ts";
 
 declare const Deno: {
   env: { get: (name: string) => string | undefined };
@@ -39,12 +36,18 @@ function getRequiredEnv(name: string): string {
   return value;
 }
 
-function formatSummary(results: ReturnType<typeof summarize>): string {
+function formatSummary(items: ItemResult[]): string {
+  const results = summarize(items);
   const lines = [
     `Created: ${results.created}`,
     `Skipped: ${results.skipped}`,
     `Failed: ${results.failed}`,
   ];
+  for (const item of items) {
+    if (item.status === "created") {
+      lines.push(`- ${item.savedWord}: ${item.notionUrl}`);
+    }
+  }
   for (const failure of results.failures) {
     lines.push(`- ${failure.input}: ${failure.phase} (${failure.reason})`);
   }
@@ -73,8 +76,6 @@ const formatProgress = (event: ProgressEvent): string => {
       return `Enriching with AI ${item}`;
     case "notion_insert":
       return `Saving to Notion ${item}`;
-    case "item_created":
-      return `Saved ${item}`;
     case "item_skipped":
       return `Skipped ${item}: ${event.reason ?? "skipped"}.`;
     case "item_failed":
@@ -156,7 +157,7 @@ Deno.serve({ port }, async (req: Request) => {
     await sendTelegramMessage(
       botToken,
       chatId,
-      `Saved: ${firstResult.savedWord}`,
+      `Saved: ${firstResult.savedWord}\n${firstResult.notionUrl}`,
     );
     console.log("reply sent: single created");
   } else {
@@ -167,7 +168,7 @@ Deno.serve({ port }, async (req: Request) => {
         `Failed '${failed.input}': ${failed.phase}. ${failed.reason}`,
       );
     }
-    await sendTelegramMessage(botToken, chatId, formatSummary(summary));
+    await sendTelegramMessage(botToken, chatId, formatSummary(results));
     console.log(
       `reply sent: created=${summary.created} skipped=${summary.skipped} failed=${summary.failed}`,
     );
