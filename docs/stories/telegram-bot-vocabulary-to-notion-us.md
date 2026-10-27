@@ -24,7 +24,9 @@ Then: the bot checks Notion for an existing record with the same Word value
 
 And: the bot sends that vocabulary item to GPT API
 
-And: GPT API returns a deterministic JSON array with one object containing word, definition, and example fields
+And: GPT API returns one deterministic object containing word, definition, and example fields
+
+And: The definition contains up to three applicable meanings, ordered by general everyday English frequency and separated by blank lines around uppercase OR
 
 And: the bot creates one new Notion row with Word, Definition, and Example populated from GPT output
 
@@ -78,7 +80,7 @@ And: the success summary indicates that item was skipped as already existing
 
 Given: a submitted vocabulary item does not exist in Notion
 
-When: the bot receives GPT output that is not a JSON array matching objects with word, definition, and example fields
+When: the bot receives GPT output that does not match the structured response schema with word, meanings, and example fields
 
 Then: the bot rejects that output for insertion
 
@@ -97,6 +99,8 @@ When: an error occurs in any processing phase
 Then: the bot sends an error message that identifies the failed phase (input parsing, Notion duplicate check, GPT request, GPT format validation, or Notion insert)
 
 And: the error message is sent in the same chat where I submitted the request
+
+And: if Gemini returns a temporary 503 unavailable error, the bot hides technical details and shows a friendly retry message with a working “Try again” button
 
 And: processing does not stop for remaining items in the same batch unless the whole request is unrecoverable
 

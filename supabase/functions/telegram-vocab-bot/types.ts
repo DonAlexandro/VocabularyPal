@@ -2,6 +2,7 @@ export type Phase =
   | "input_parsing"
   | "notion_lookup"
   | "gpt_request"
+  | "gpt_unavailable"
   | "gpt_validation"
   | "notion_insert";
 

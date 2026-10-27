@@ -1,7 +1,7 @@
 import { parseVocabularyLines } from "./parseMessage.ts";
 import { type INotionService, NotionService } from "./notion.ts";
 import { enrichWordWithGpt } from "./gpt.ts";
-import type { ItemResult, Summary } from "./types.ts";
+import type { ItemResult, Phase, Summary } from "./types.ts";
 
 type ProgressStage =
   | "batch_start"
@@ -17,8 +17,14 @@ type ProgressEvent = {
   item?: string;
   index?: number;
   total?: number;
+  phase?: Phase;
   reason?: string;
 };
+
+const GEMINI_UNAVAILABLE_STATUS = 503;
+const GEMINI_UNAVAILABLE_CODE_PATTERN = new RegExp(
+  `"code"\\s*:\\s*${GEMINI_UNAVAILABLE_STATUS}`,
+);
 
 type PipelineDeps = {
   notion: INotionService;
@@ -50,6 +56,18 @@ export function summarize(results: ItemResult[]): Summary {
 function stripError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return "unknown error";
+}
+
+export function isGeminiUnavailable(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const details = error as { code?: unknown; message?: unknown; status?: unknown };
+  if (
+    details.status === GEMINI_UNAVAILABLE_STATUS ||
+    details.code === GEMINI_UNAVAILABLE_STATUS
+  ) return true;
+  if (typeof details.message !== "string") return false;
+  return GEMINI_UNAVAILABLE_CODE_PATTERN.test(details.message) ||
+    /"status"\s*:\s*"UNAVAILABLE"/.test(details.message);
 }
 
 const reportProgress = async (
@@ -148,8 +166,16 @@ export async function processMessageBatch(
     try {
       gpt = await deps.enrichWord(item);
     } catch (error) {
-      const msg = stripError(error);
-      const phase = msg.includes("format validation failed") ? "gpt_validation" : "gpt_request";
+      const unavailable = isGeminiUnavailable(error);
+      if (unavailable) console.error("Gemini temporarily unavailable (503)", error);
+      const msg = unavailable
+        ? "Gemini is experiencing high demand. Please wait a moment, then tap Try again."
+        : stripError(error);
+      const phase: Phase = unavailable
+        ? "gpt_unavailable"
+        : msg.includes("format validation failed")
+        ? "gpt_validation"
+        : "gpt_request";
       results.push({ status: "failed", input: item, phase, reason: msg });
 
       await reportProgress(deps, {
@@ -157,6 +183,7 @@ export async function processMessageBatch(
         item,
         index: step,
         total,
+        phase,
         reason: `${phase}: ${msg}`,
       });
 

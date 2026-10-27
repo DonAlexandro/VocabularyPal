@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { processMessageBatch, summarize } from "./pipeline.ts";
+import { isGeminiUnavailable, processMessageBatch, summarize } from "./pipeline.ts";
 import type { INotionService } from "./notion.ts";
 import type { GptVocabulary } from "./types.ts";
 
@@ -103,3 +103,31 @@ Deno.test(
     });
   },
 );
+
+Deno.test("isGeminiUnavailable recognizes Gemini 503 responses", () => {
+  assertEquals(isGeminiUnavailable({ status: 503 }), true);
+  assertEquals(
+    isGeminiUnavailable({
+      message: '{"error":{"code":503,"status":"UNAVAILABLE"}}',
+    }),
+    true,
+  );
+  assertEquals(isGeminiUnavailable(new Error("network timeout")), false);
+});
+
+Deno.test("processMessageBatch hides Gemini 503 details from user result", async () => {
+  const mock = mockNotion({});
+  const results = await processMessageBatch("bark", {
+    notion: mock.notion,
+    enrichWord: () =>
+      Promise.reject(
+        Object.assign(new Error("high demand stack detail"), { status: 503 }),
+      ),
+  });
+  assertEquals(results[0], {
+    status: "failed",
+    input: "bark",
+    phase: "gpt_unavailable",
+    reason: "Gemini is experiencing high demand. Please wait a moment, then tap Try again.",
+  });
+});
